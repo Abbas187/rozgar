@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import axiosInstance from '../utils/axios';
+import { supabase } from '../lib/supabaseClient';
 import useAuthStore from '../store/useAuthStore';
 import toast from 'react-hot-toast';
-import { io } from 'socket.io-client';
 import { ShieldCheck, Send, MessageSquare, Shield, CheckCircle } from 'lucide-react';
 
 const OrderDetailsPage = () => {
@@ -15,24 +14,29 @@ const OrderDetailsPage = () => {
     const [loading, setLoading] = useState(true);
 
     const endOfChatRef = useRef(null);
-    const socketRef = useRef(null);
 
     useEffect(() => {
         fetchOrderDetails();
         fetchChatHistory();
 
-        // Initialize Socket
-        const socketUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
-        socketRef.current = io(socketUrl);
-
-        socketRef.current.emit('join_chat', id);
-
-        socketRef.current.on('receive_message', (message) => {
-            setMessages((prev) => [...prev, message]);
-        });
+        // Initialize Supabase Realtime
+        const channel = supabase.channel(`order-chat-${id}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'messages',
+                filter: `order_id=eq.${id}`
+            }, (payload) => {
+                setMessages((prev) => [...prev, payload.new]);
+            })
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log('Realtime chat subscribed');
+                }
+            });
 
         return () => {
-            socketRef.current.disconnect();
+            supabase.removeChannel(channel);
         };
     }, [id]);
 
@@ -42,12 +46,15 @@ const OrderDetailsPage = () => {
 
     const fetchOrderDetails = async () => {
         try {
-            // Find the specific order from the list
-            const res = await axiosInstance.get('/orders');
-            const currentOrder = res.data.find(o => o._id === id);
-            if (currentOrder) setOrder(currentOrder);
+            const { data, error } = await supabase
+                .from('orders')
+                .select('*, jobId:jobs(*)')
+                .eq('id', id)
+                .single();
+            if (error) throw error;
+            setOrder(data);
         } catch (error) {
-            toast.error('Failed to load order');
+            toast.error('Failed to load order: ' + error.message);
         } finally {
             setLoading(false);
         }
@@ -55,8 +62,14 @@ const OrderDetailsPage = () => {
 
     const fetchChatHistory = async () => {
         try {
-            const res = await axiosInstance.get(`/chat/${id}`);
-            setMessages(res.data);
+            const { data, error } = await supabase
+                .from('messages')
+                .select('*')
+                .eq('order_id', id)
+                .order('created_at', { ascending: true });
+
+            if (error) console.error(error);
+            else setMessages(data || []);
         } catch (error) {
             console.error(error);
         }
@@ -64,18 +77,17 @@ const OrderDetailsPage = () => {
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
-        if (!newMessage.trim()) return;
+        if (!newMessage.trim() || !order) return;
 
         try {
-            const res = await axiosInstance.post(`/chat/${id}`, { content: newMessage });
-            const savedMessage = res.data;
+            const { error } = await supabase.from('messages').insert([{
+                order_id: id,
+                sender_id: user.id,
+                receiver_id: isBuyer ? order.provider_id : order.buyer_id,
+                content: newMessage
+            }]);
 
-            // Emit to socket
-            socketRef.current.emit('send_message', {
-                ...savedMessage,
-                chatId: id
-            });
-
+            if (error) throw error;
             setNewMessage('');
         } catch (error) {
             toast.error('Failed to send message');
@@ -84,29 +96,43 @@ const OrderDetailsPage = () => {
 
     const handleDepositToEscrow = async () => {
         try {
-            const res = await axiosInstance.post(`/orders/${id}/escrow`);
+            const { data, error } = await supabase
+                .from('orders')
+                .update({ payment_status: 'Held_in_Escrow' })
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) throw error;
             toast.success('Funds securely deposited to Escrow!');
-            setOrder(res.data);
+            setOrder({ ...order, ...data });
         } catch (error) {
-            toast.error('Failed to deposit funds');
+            toast.error('Failed to deposit funds: ' + error.message);
         }
     };
 
     const handleReleasePayment = async () => {
         if (!window.confirm('Are you sure the job is completed? This will release the funds to the provider.')) return;
         try {
-            const res = await axiosInstance.post(`/orders/${id}/release`);
+            const { data, error } = await supabase
+                .from('orders')
+                .update({ payment_status: 'Released', status: 'Completed' })
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) throw error;
             toast.success('Funds released to Provider. Job completed!');
-            setOrder(res.data);
+            setOrder({ ...order, ...data });
         } catch (error) {
-            toast.error('Failed to release funds');
+            toast.error('Failed to release funds: ' + error.message);
         }
     };
 
     if (loading) return <div className="text-center py-20">Loading order...</div>;
     if (!order) return <div className="text-center py-20">Order not found.</div>;
 
-    const isBuyer = user?._id === order.buyerId?._id;
+    const isBuyer = user?.id === order.buyer_id;
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -140,11 +166,11 @@ const OrderDetailsPage = () => {
 
                             <div>
                                 <p className="text-sm font-medium text-slate-500 mb-2">Payment Status</p>
-                                <span className={`px-3 py-1 text-sm font-semibold rounded-full border ${order.paymentStatus === 'Held_in_Escrow' ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                                        order.paymentStatus === 'Released' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                                <span className={`px-3 py-1 text-sm font-semibold rounded-full border ${(order.payment_status || order.paymentStatus) === 'Held_in_Escrow' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                                        (order.payment_status || order.paymentStatus) === 'Released' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
                                             'bg-slate-100 text-slate-800 border-slate-200'
                                     }`}>
-                                    {order.paymentStatus.replace(/_/g, ' ')}
+                                    {(order.payment_status || order.paymentStatus || '').replace(/_/g, ' ')}
                                 </span>
                             </div>
                         </div>
@@ -154,21 +180,21 @@ const OrderDetailsPage = () => {
                             <div className="mt-8 pt-6 border-t border-slate-200">
                                 <h3 className="font-bold text-slate-800 mb-4">Buyer Actions</h3>
 
-                                {order.paymentStatus === 'Pending' && (
+                                {(order.payment_status || order.paymentStatus) === 'Pending' && (
                                     <button onClick={handleDepositToEscrow} className="w-full btn-primary py-3 flex justify-center items-center shadow-md bg-gradient-to-r from-primary-600 to-indigo-600 hover:from-primary-700 hover:to-indigo-700">
                                         <Shield className="w-5 h-5 mr-2" />
                                         Deposit to Escrow
                                     </button>
                                 )}
 
-                                {order.paymentStatus === 'Held_in_Escrow' && (
+                                {(order.payment_status || order.paymentStatus) === 'Held_in_Escrow' && (
                                     <button onClick={handleReleasePayment} className="w-full btn-primary py-3 flex justify-center items-center shadow-md bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 border-none">
                                         <CheckCircle className="w-5 h-5 mr-2" />
                                         Job Done! Release Funds
                                     </button>
                                 )}
 
-                                {order.paymentStatus === 'Released' && (
+                                {(order.payment_status || order.paymentStatus) === 'Released' && (
                                     <div className="bg-emerald-50 text-emerald-700 p-4 rounded-xl border border-emerald-100 text-center font-medium">
                                         Funds Released. Job Completed.
                                     </div>
@@ -180,17 +206,17 @@ const OrderDetailsPage = () => {
                         {!isBuyer && (
                             <div className="mt-8 pt-6 border-t border-slate-200">
                                 <h3 className="font-bold text-slate-800 mb-4">Status Update</h3>
-                                {order.paymentStatus === 'Pending' && (
+                                {(order.payment_status || order.paymentStatus) === 'Pending' && (
                                     <div className="bg-amber-50 text-amber-700 p-4 rounded-xl text-sm border border-amber-100">
                                         Waiting for buyer to deposit funds to Escrow. Do not start work yet.
                                     </div>
                                 )}
-                                {order.paymentStatus === 'Held_in_Escrow' && (
+                                {(order.payment_status || order.paymentStatus) === 'Held_in_Escrow' && (
                                     <div className="bg-emerald-50 text-emerald-700 p-4 rounded-xl text-sm border border-emerald-100">
                                         Funds securely held in Escrow! You can now start the work.
                                     </div>
                                 )}
-                                {order.paymentStatus === 'Released' && (
+                                {(order.payment_status || order.paymentStatus) === 'Released' && (
                                     <div className="bg-emerald-50 text-emerald-700 p-4 rounded-xl text-sm border border-emerald-100 font-medium text-center">
                                         Funds released to your wallet. Great job!
                                     </div>
@@ -214,7 +240,7 @@ const OrderDetailsPage = () => {
                             </div>
                         ) : (
                             messages.map((msg, idx) => {
-                                const isMe = msg.senderId?._id === user?._id || msg.senderId === user?._id;
+                                const isMe = msg.sender_id === user?.id || msg.senderId === user?.id;
                                 return (
                                     <div key={idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                                         <div className={`max-w-[75%] rounded-2xl px-5 py-3 ${isMe ? 'bg-primary-600 text-white rounded-br-sm shadow-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm shadow-sm'

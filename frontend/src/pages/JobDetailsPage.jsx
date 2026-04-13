@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axiosInstance from '../utils/axios';
+import { supabase } from '../lib/supabaseClient';
 import useAuthStore from '../store/useAuthStore';
 import toast from 'react-hot-toast';
 import { MapPin, DollarSign, Calendar, User, ArrowLeft, CheckCircle } from 'lucide-react';
@@ -26,13 +26,25 @@ const JobDetailsPage = () => {
 
     const fetchJobDetails = async () => {
         try {
-            const res = await axiosInstance.get(`/jobs/${id}`);
-            setJob(res.data);
+            const { data: jobData, error: jobError } = await supabase
+                .from('jobs')
+                .select('*, buyerId:users(*)')
+                .eq('id', id)
+                .single();
+
+            if (jobError) throw jobError;
+
+            setJob({ ...jobData, _id: jobData.id, createdAt: jobData.created_at, buyerId: { ...jobData.buyerId, _id: jobData.buyerId.id } });
 
             // If current user is the buyer, fetch applications
-            if (user?._id === res.data.buyerId?._id) {
-                const appsRes = await axiosInstance.get(`/jobs/${id}/applications`);
-                setApplications(appsRes.data);
+            if (user?.id === jobData.buyerId.id) {
+                const { data: appsData, error: appsError } = await supabase
+                    .from('applications')
+                    .select('*, providerId:users(*)')
+                    .eq('jobId', id);
+                if (!appsError && appsData) {
+                    setApplications(appsData.map(app => ({ ...app, _id: app.id, providerId: { ...app.providerId, _id: app.providerId.id } })));
+                }
             }
         } catch (error) {
             toast.error('Failed to load job details');
@@ -46,14 +58,18 @@ const JobDetailsPage = () => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            await axiosInstance.post(`/jobs/${id}/apply`, {
+            const { error: applyError } = await supabase.from('applications').insert([{
+                jobId: id,
+                providerId: user.id,
                 coverLetter,
-                proposedPrice: Number(proposedPrice)
-            });
+                proposedPrice: Number(proposedPrice),
+                status: 'Pending'
+            }]);
+            if (applyError) throw applyError;
             toast.success('Application submitted successfully!');
             setShowApplyModal(false);
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Failed to submit application');
+            toast.error(error.message || 'Failed to submit application');
         } finally {
             setSubmitting(false);
         }
@@ -61,18 +77,36 @@ const JobDetailsPage = () => {
 
     const handleAcceptApplication = async (appId) => {
         try {
-            const res = await axiosInstance.put(`/applications/${appId}/accept`);
+            // update application status
+            const { error: appError } = await supabase.from('applications').update({ status: 'Accepted' }).eq('id', appId);
+            if (appError) throw appError;
+
+            // create order
+            const app = applications.find(a => a._id === appId);
+            const { data: orderData, error: orderError } = await supabase.from('orders').insert([{
+                jobId: id,
+                buyerId: user.id,
+                providerId: app.providerId.id,
+                amount: app.proposedPrice,
+                status: 'Pending',
+                paymentStatus: 'Pending'
+            }]).select().single();
+            if (orderError) throw orderError;
+
+            // update job status
+            await supabase.from('jobs').update({ status: 'In Progress', assignedProviderId: app.providerId.id }).eq('id', id);
+
             toast.success('Provider accepted! An order has been created.');
-            navigate(`/orders/${res.data.order._id}`);
+            navigate(`/orders/${orderData.id}`);
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Failed to accept provider');
+            toast.error(error.message || 'Failed to accept provider');
         }
     };
 
     if (loading) return <div className="text-center py-20 text-slate-500">Loading details...</div>;
     if (!job) return null;
 
-    const isBuyer = user?._id === job.buyerId?._id;
+    const isBuyer = user?.id === job.buyerId?._id;
 
     return (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">

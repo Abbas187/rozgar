@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
-import axiosInstance from '../utils/axios';
+import { supabase } from '../lib/supabaseClient';
 import { PlusCircle, Search, ClipboardList, Clock, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -13,17 +13,41 @@ const DashboardPage = () => {
 
     useEffect(() => {
         const fetchDashboardData = async () => {
+            if (!user) return;
             try {
-                const [ordersRes, jobsRes] = await Promise.all([
-                    axiosInstance.get('/orders'),
-                    user?.role === 'Buyer' ? axiosInstance.get('/jobs/myjobs') : Promise.resolve({ data: [] })
-                ]);
+                // Fetch orders where user is either buyer or provider
+                const { data: ordersData, error: ordersError } = await supabase
+                    .from('orders')
+                    .select('*, jobId:jobs(*), providerId:users(*), buyerId:users(*)')
+                    .or(`buyerId.eq.${user.id},providerId.eq.${user.id}`);
 
-                setOrders(ordersRes.data);
+                if (ordersError) throw ordersError;
+
+                // Map frontend expected attributes
+                const formattedOrders = ordersData.map(o => ({
+                    ...o,
+                    _id: o.id,
+                    jobId: { ...o.jobId, _id: o.jobId.id },
+                    providerId: { ...o.providerId, _id: o.providerId.id },
+                    buyerId: { ...o.buyerId, _id: o.buyerId.id }
+                }));
+
+                setOrders(formattedOrders);
+
                 if (user?.role === 'Buyer') {
-                    setMyJobs(jobsRes.data);
+                    const { data: jobsData, error: jobsError } = await supabase
+                        .from('jobs')
+                        .select('*')
+                        .eq('buyerId', user.id)
+                        .order('created_at', { ascending: false });
+
+                    if (jobsError) throw jobsError;
+
+                    const formattedJobs = jobsData.map(j => ({ ...j, _id: j.id }));
+                    setMyJobs(formattedJobs);
                 }
             } catch (error) {
+                console.error(error);
                 toast.error('Failed to load dashboard data');
             } finally {
                 setLoading(false);

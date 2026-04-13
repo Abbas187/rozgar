@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import axiosInstance from '../utils/axios';
+import { supabase } from '../lib/supabaseClient';
 import useAuthStore from '../store/useAuthStore';
 import toast from 'react-hot-toast';
 import { ShieldAlert, Users, Briefcase, ClipboardList, CheckCircle, XCircle } from 'lucide-react';
@@ -10,7 +10,7 @@ const AdminDashboardPage = () => {
     const { user } = useAuthStore();
     const [activeTab, setActiveTab] = useState('orders'); // 'users', 'jobs', 'orders'
 
-    const [users, setUsers] = useState([]);
+    const [usersList, setUsersList] = useState([]);
     const [jobs, setJobs] = useState([]);
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -21,17 +21,23 @@ const AdminDashboardPage = () => {
     }, [user]);
 
     const fetchAdminData = async () => {
+        setLoading(true);
         try {
             const [usersRes, jobsRes, ordersRes] = await Promise.all([
-                axiosInstance.get('/admin/users'),
-                axiosInstance.get('/admin/jobs'),
-                axiosInstance.get('/admin/orders')
+                supabase.from('profiles').select('*'),
+                supabase.from('jobs').select('*'),
+                supabase.from('orders').select('*, jobId:jobs(*)')
             ]);
-            setUsers(usersRes.data);
+
+            if (usersRes.error) throw usersRes.error;
+            if (jobsRes.error) throw jobsRes.error;
+            if (ordersRes.error) throw ordersRes.error;
+
+            setUsersList(usersRes.data);
             setJobs(jobsRes.data);
             setOrders(ordersRes.data);
         } catch (error) {
-            toast.error('Failed to load admin data');
+            toast.error('Failed to load admin data: ' + error.message);
         } finally {
             setLoading(false);
         }
@@ -41,11 +47,15 @@ const AdminDashboardPage = () => {
         if (!window.confirm(`Are you sure you want to ${action === 'RefundBuyer' ? 'Refund the Buyer' : 'Release funds to Provider'}?`)) return;
 
         try {
-            await axiosInstance.put(`/admin/dispute/${orderId}`, { action });
+            const newPaymentStatus = action === 'RefundBuyer' ? 'Refunded' : 'Released';
+            const { error } = await supabase.from('orders').update({ payment_status: newPaymentStatus, status: 'Completed' }).eq('id', orderId);
+
+            if (error) throw error;
+
             toast.success('Dispute resolved successfully');
             fetchAdminData();
         } catch (error) {
-            toast.error('Failed to resolve dispute');
+            toast.error('Failed to resolve dispute: ' + error.message);
         }
     };
 
@@ -72,20 +82,20 @@ const AdminDashboardPage = () => {
                     </h2>
                     <div className="space-y-4">
                         {disputes.map(dispute => (
-                            <div key={dispute._id} className="bg-white p-4 rounded-lg shadow-sm flex items-center justify-between border border-red-100">
+                            <div key={dispute.id} className="bg-white p-4 rounded-lg shadow-sm flex items-center justify-between border border-red-100">
                                 <div>
-                                    <p className="font-bold">Order ID: {dispute._id}</p>
+                                    <p className="font-bold">Order ID: {dispute.id}</p>
                                     <p className="text-sm text-slate-600">Amount: ${dispute.amount} | Held in Escrow</p>
                                 </div>
                                 <div className="space-x-3">
                                     <button
-                                        onClick={() => handleDispute(dispute._id, 'RefundBuyer')}
+                                        onClick={() => handleDispute(dispute.id, 'RefundBuyer')}
                                         className="btn-secondary text-red-600 border-red-200 hover:bg-red-50"
                                     >
                                         Refund Buyer
                                     </button>
                                     <button
-                                        onClick={() => handleDispute(dispute._id, 'ReleaseToProvider')}
+                                        onClick={() => handleDispute(dispute.id, 'ReleaseToProvider')}
                                         className="btn-primary"
                                     >
                                         Release to Provider
@@ -134,8 +144,8 @@ const AdminDashboardPage = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {orders.map(order => (
-                                <tr key={order._id} className="hover:bg-slate-50">
-                                    <td className="px-6 py-4 font-mono text-slate-500 text-xs">{order._id}</td>
+                                <tr key={order.id} className="hover:bg-slate-50">
+                                    <td className="px-6 py-4 font-mono text-slate-500 text-xs">{order.id}</td>
                                     <td className="px-6 py-4">{order.jobId?.title || 'Unknown Job'}</td>
                                     <td className="px-6 py-4 font-bold">${order.amount}</td>
                                     <td className="px-6 py-4">
@@ -143,17 +153,16 @@ const AdminDashboardPage = () => {
                                             {order.status}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4">{order.paymentStatus}</td>
+                                    <td className="px-6 py-4">{order.payment_status || order.paymentStatus}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 )}
 
-                {/* Similar tables for Jobs and Users would be here */}
                 {activeTab === 'users' && (
                     <div className="p-8 text-center text-slate-500">
-                        {users.length} Users registered on the platform.
+                        {usersList.length} Users registered on the platform.
                     </div>
                 )}
 

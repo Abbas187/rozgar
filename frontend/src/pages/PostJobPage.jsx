@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axiosInstance from '../utils/axios';
+import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
 
 const CATEGORIES = [
@@ -9,7 +9,10 @@ const CATEGORIES = [
     'Landscaping', 'Web Development', 'Design', 'Other'
 ];
 
+import useAuthStore from '../store/useAuthStore';
+
 const PostJobPage = () => {
+    const { user } = useAuthStore();
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -28,14 +31,17 @@ const PostJobPage = () => {
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            await axiosInstance.post('/jobs', {
+            const { error } = await supabase.from('jobs').insert([{
                 ...formData,
-                budget: Number(formData.budget)
-            });
+                budget: Number(formData.budget),
+                buyerId: user.id,
+                status: 'Open'
+            }]);
+            if (error) throw error;
             toast.success('Job posted successfully!');
             navigate('/dashboard');
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Failed to post job');
+            toast.error(error.message || 'Failed to post job');
         } finally {
             setIsSubmitting(false);
         }

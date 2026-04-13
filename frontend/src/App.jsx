@@ -25,6 +25,12 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const App = () => {
+  const { initialize } = useAuthStore();
+
+  React.useEffect(() => {
+    initialize();
+  }, [initialize]);
+
   return (
     <BrowserRouter>
       <Toaster position="top-center" />

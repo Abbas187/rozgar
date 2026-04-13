@@ -1,23 +1,54 @@
 import { create } from 'zustand';
-import axiosInstance from '../utils/axios';
+import { supabase } from '../lib/supabaseClient';
 
 const useAuthStore = create((set) => ({
-    user: JSON.parse(localStorage.getItem('user')) || null,
-    token: localStorage.getItem('token') || null,
+    user: null,
+    token: null,
     isLoading: false,
     error: null,
+
+    initialize: async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+            set({ user: { ...session.user, ...profile }, token: session.access_token });
+        }
+
+        supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (session) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+                set({ user: { ...session.user, ...profile }, token: session.access_token });
+            } else {
+                set({ user: null, token: null });
+            }
+        });
+    },
 
     login: async (email, password) => {
         set({ isLoading: true, error: null });
         try {
-            const res = await axiosInstance.post('/auth/login', { email, password });
-            localStorage.setItem('user', JSON.stringify(res.data));
-            localStorage.setItem('token', res.data.token);
-            set({ user: res.data, token: res.data.token, isLoading: false });
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', data.user.id)
+                .single();
+
+            set({ user: { ...data.user, ...profile }, token: data.session.access_token, isLoading: false });
             return true;
         } catch (error) {
             set({
-                error: error.response?.data?.message || 'Login failed',
+                error: error.message || 'Login failed',
                 isLoading: false
             });
             return false;
@@ -27,23 +58,31 @@ const useAuthStore = create((set) => ({
     register: async (userData) => {
         set({ isLoading: true, error: null });
         try {
-            const res = await axiosInstance.post('/auth/register', userData);
-            localStorage.setItem('user', JSON.stringify(res.data));
-            localStorage.setItem('token', res.data.token);
-            set({ user: res.data, token: res.data.token, isLoading: false });
+            const { data, error } = await supabase.auth.signUp({
+                email: userData.email,
+                password: userData.password,
+                options: {
+                    data: {
+                        name: userData.name,
+                        role: userData.role
+                    }
+                }
+            });
+            if (error) throw error;
+
+            set({ isLoading: false });
             return true;
         } catch (error) {
             set({
-                error: error.response?.data?.message || 'Registration failed',
+                error: error.message || 'Registration failed',
                 isLoading: false
             });
             return false;
         }
     },
 
-    logout: () => {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+    logout: async () => {
+        await supabase.auth.signOut();
         set({ user: null, token: null });
     },
 

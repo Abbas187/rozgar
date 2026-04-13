@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axiosInstance from '../utils/axios';
+import { supabase } from '../lib/supabaseClient';
 import { Search, MapPin, DollarSign, Briefcase } from 'lucide-react';
 import dayjs from 'dayjs';
 
@@ -12,8 +12,10 @@ const BrowseJobsPage = () => {
     useEffect(() => {
         const fetchJobs = async () => {
             try {
-                const res = await axiosInstance.get('/jobs');
-                setJobs(res.data);
+                const { data, error } = await supabase.from('jobs').select('*').order('created_at', { ascending: false });
+                if (error) throw error;
+                const mappedJobs = data.map(job => ({ ...job, _id: job.id, createdAt: job.created_at }));
+                setJobs(mappedJobs);
             } catch (error) {
                 console.error('Failed to load jobs', error);
             } finally {
