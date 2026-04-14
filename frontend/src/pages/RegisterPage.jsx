@@ -29,12 +29,12 @@ const RegisterPage = () => {
             return toast.error('Please fill all required fields');
         }
 
-        const success = await register(formData);
-        if (success) {
+        const result = await register(formData);
+        if (result && result.success) {
             toast.success('Registration successful!');
             navigate('/');
         } else {
-            toast.error(error || 'Failed to register');
+            toast.error((result && result.message) || 'Failed to register');
         }
     };
 

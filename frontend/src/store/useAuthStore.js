@@ -71,13 +71,14 @@ const useAuthStore = create((set) => ({
             if (error) throw error;
 
             set({ isLoading: false });
-            return true;
+            return { success: true };
         } catch (error) {
+            const errMsg = error.message || 'Registration failed';
             set({
-                error: error.message || 'Registration failed',
+                error: errMsg,
                 isLoading: false
             });
-            return false;
+            return { success: false, message: errMsg };
         }
     },
 
