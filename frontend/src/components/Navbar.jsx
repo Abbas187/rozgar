@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
-import { LogOut, User as UserIcon, Briefcase } from 'lucide-react';
+import { LogOut, User as UserIcon, Briefcase, MessageSquare } from 'lucide-react';
 
 const Navbar = () => {
     const { user, logout } = useAuthStore();
@@ -32,6 +32,9 @@ const Navbar = () => {
                             <>
                                 <Link to="/dashboard" className="text-slate-600 hover:text-primary-600 font-medium text-sm transition-colors">
                                     Dashboard
+                                </Link>
+                                <Link to="/inbox" className="text-slate-600 hover:text-primary-600 font-medium text-sm transition-colors flex items-center gap-1">
+                                    <MessageSquare className="w-4 h-4" /> Inbox
                                 </Link>
                                 <div className="h-6 w-px bg-slate-200 mx-2"></div>
                                 <Link to="/profile" className="flex items-center space-x-3 hover:bg-slate-50 p-1.5 rounded-lg transition-colors">

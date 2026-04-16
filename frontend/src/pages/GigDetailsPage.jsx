@@ -236,12 +236,18 @@ const GigDetailsPage = () => {
                                 </li>
                             </ul>
 
-                            <button
-                                onClick={handleContactProvider}
-                                className="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-lg font-black tracking-wide py-4 mx-auto rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform mb-4 flex justify-center items-center"
-                            >
-                                Contact to Request (${gig.price})
-                            </button>
+                            {user?.role === 'Buyer' ? (
+                                <button
+                                    onClick={handleContactProvider}
+                                    className="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-lg font-black tracking-wide py-4 mx-auto rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform mb-4 flex justify-center items-center"
+                                >
+                                    Contact to Request (${gig.price})
+                                </button>
+                            ) : (
+                                <div className="w-full bg-slate-100 text-slate-500 text-center py-4 rounded-xl font-bold mb-4">
+                                    {user?.id === gig.provider_id?.id ? 'This is your Gig' : 'Available for Buyers only'}
+                                </div>
+                            )}
 
                             <p className="text-center text-xs font-bold text-slate-400 flex items-center justify-center uppercase tracking-widest mt-6">
                                 <Shield className="w-4 h-4 mr-1.5" /> Buyer Escrow Protection
@@ -258,9 +264,11 @@ const GigDetailsPage = () => {
                             <h4 className="font-black text-xl text-slate-900">{gig.provider_id?.name}</h4>
                             <p className="text-sm font-black text-blue-600 mb-6 uppercase tracking-widest">{gig.provider_id?.location || 'Global Provider'}</p>
 
-                            <button onClick={handleContactProvider} className="inline-block px-8 py-3 border-2 border-slate-200 text-slate-700 font-black rounded-xl text-sm hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition shadow-sm w-full">
-                                Message Me
-                            </button>
+                            {user?.role === 'Buyer' && (
+                                <button onClick={handleContactProvider} className="inline-block px-8 py-3 border-2 border-slate-200 text-slate-700 font-black rounded-xl text-sm hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition shadow-sm w-full">
+                                    Message Me
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
