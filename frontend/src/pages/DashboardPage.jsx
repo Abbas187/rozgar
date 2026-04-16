@@ -8,10 +8,10 @@ const DashboardPage = () => {
 
     if (!user) return null;
 
-    if (user.role === 'Buyer') {
-        return <BuyerDashboard user={user} />;
-    } else {
+    if (user.role === 'Provider') {
         return <ProviderDashboard user={user} />;
+    } else {
+        return <BuyerDashboard user={user} />;
     }
 };
 
