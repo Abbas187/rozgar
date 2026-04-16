@@ -10,7 +10,7 @@ const BrowseGigsPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('All');
 
-    const categories = ['All', 'Web Development', 'Graphic Design', 'Writing & Translation', 'Digital Marketing', 'Video & Animation', 'Music & Audio', 'Business', 'Lifestyle'];
+    const categories = ['All', 'Web Development', 'Graphic Design', 'Writing & Translation', 'Digital Marketing', 'Video & Animation', 'Painting & Decorating', 'Plumbing', 'Construction', 'Electrical & Handyman', 'Lifestyle'];
 
     useEffect(() => {
         const fetchGigs = async () => {

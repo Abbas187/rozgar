@@ -13,7 +13,7 @@ const ProviderDashboard = ({ user }) => {
     const [newGig, setNewGig] = useState({ title: '', category: '', experience_level: 'Intermediate', description: '', price: '' });
     const [creatingGig, setCreatingGig] = useState(false);
 
-    const categories = ['Web Development', 'Graphic Design', 'Writing & Translation', 'Digital Marketing', 'Video & Animation', 'Music & Audio', 'Business', 'Lifestyle'];
+    const categories = ['All', 'Web Development', 'Graphic Design', 'Writing & Translation', 'Digital Marketing', 'Video & Animation', 'Painting & Decorating', 'Plumbing', 'Construction', 'Electrical & Handyman', 'Lifestyle'];
 
     const fetchDashboardData = async () => {
         try {

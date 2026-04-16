@@ -53,61 +53,17 @@ const GigDetailsPage = () => {
         fetchGigData();
     }, [id]);
 
-    const handlePurchase = async () => {
+    const handleContactProvider = () => {
         if (!user) {
-            toast.error('Please log in to purchase this gig.');
+            toast.error('Please log in first.');
             navigate('/login');
             return;
         }
-
-        if (user.role === 'Provider') {
-            toast.error('Providers cannot purchase gigs. Please use a Buyer account.');
-            return;
-        }
-
         if (gig.provider_id.id === user.id) {
-            toast.error('You cannot purchase your own gig!');
+            toast.error('You cannot chat with yourself!');
             return;
         }
-
-        setPurchasing(true);
-        try {
-            // Because our backend expects a 'job' linking an order, 
-            // we create an automated representation of this gig contract in jobs.
-            const { data: jobData, error: jobError } = await supabase
-                .from('jobs')
-                .insert([{
-                    title: `Gig Purchase: ${gig.title}`,
-                    description: `Automated contract generated from Gig purchase.`,
-                    budget: gig.price,
-                    status: 'In Progress',
-                    buyerId: user.id
-                }])
-                .select()
-                .single();
-
-            if (jobError) throw jobError;
-
-            const { error: orderError } = await supabase
-                .from('orders')
-                .insert([{
-                    jobId: jobData.id,
-                    providerId: gig.provider_id.id,
-                    buyerId: user.id,
-                    amount: gig.price,
-                    status: 'Pending'
-                }]);
-
-            if (orderError) throw orderError;
-
-            toast.success('Gig purchased successfully! Escrow contract created.');
-            navigate('/dashboard');
-        } catch (error) {
-            console.error(error);
-            toast.error('Failed to process purchase.');
-        } finally {
-            setPurchasing(false);
-        }
+        navigate(`/chat?user=${gig.provider_id.id}&gig=${gig.id}`);
     };
 
     const handleSubmitReview = async (e) => {
@@ -177,7 +133,12 @@ const GigDetailsPage = () => {
                             </div>
 
                             <div className="h-80 sm:h-[450px] w-full rounded-2xl overflow-hidden relative mb-10 shadow-inner">
-                                <img src={`https://images.unsplash.com/photo-1558655146-d09347e92766?q=80&w=1200&auto=format&fit=crop`} alt="Gig Cover" className="w-full h-full object-cover object-center" />
+                                <img src={
+                                    gig.category.includes('Plumbing') ? 'https://images.unsplash.com/photo-1505798577917-a65157d3320a?q=80&w=1200&auto=format&fit=crop' :
+                                        gig.category.includes('Construct') ? 'https://images.unsplash.com/photo-1504307651254-35680f356fce?q=80&w=1200&auto=format&fit=crop' :
+                                            gig.category.includes('Painting') ? 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?q=80&w=1200&auto=format&fit=crop' :
+                                                'https://images.unsplash.com/photo-1558655146-d09347e92766?q=80&w=1200&auto=format&fit=crop'
+                                } alt="Gig Cover" className="w-full h-full object-cover object-center" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
                                 <div className="absolute bottom-6 left-6 text-white text-sm font-black uppercase tracking-widest bg-black/40 backdrop-blur px-4 py-2 rounded-lg border border-white/20 shadow-lg">
                                     {gig.experience_level} LEVEL
@@ -276,11 +237,10 @@ const GigDetailsPage = () => {
                             </ul>
 
                             <button
-                                onClick={handlePurchase}
-                                disabled={purchasing}
-                                className="w-full bg-slate-900 hover:bg-black active:scale-95 text-white text-lg font-black tracking-wide py-4 mx-auto rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform mb-4 flex justify-center items-center"
+                                onClick={handleContactProvider}
+                                className="w-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-lg font-black tracking-wide py-4 mx-auto rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform mb-4 flex justify-center items-center"
                             >
-                                {purchasing ? 'Processing Order...' : `Continue to order ($${gig.price})`}
+                                Contact to Request (${gig.price})
                             </button>
 
                             <p className="text-center text-xs font-bold text-slate-400 flex items-center justify-center uppercase tracking-widest mt-6">
@@ -298,8 +258,8 @@ const GigDetailsPage = () => {
                             <h4 className="font-black text-xl text-slate-900">{gig.provider_id?.name}</h4>
                             <p className="text-sm font-black text-blue-600 mb-6 uppercase tracking-widest">{gig.provider_id?.location || 'Global Provider'}</p>
 
-                            <button onClick={() => alert("Chat functionality to be integrated.")} className="inline-block px-8 py-3 border-2 border-slate-200 text-slate-700 font-black rounded-xl text-sm hover:border-slate-400 hover:bg-slate-50 transition shadow-sm w-full">
-                                Contact Provider
+                            <button onClick={handleContactProvider} className="inline-block px-8 py-3 border-2 border-slate-200 text-slate-700 font-black rounded-xl text-sm hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition shadow-sm w-full">
+                                Message Me
                             </button>
                         </div>
                     </div>

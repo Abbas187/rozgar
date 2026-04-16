@@ -48,7 +48,7 @@ const ProfilePage = () => {
             // Upload to Supabase Storage Bucket named 'avatars'
             const { error: uploadError } = await supabase.storage
                 .from('avatars')
-                .upload(filePath, file);
+                .upload(filePath, file, { upsert: true, cacheControl: '3600' });
 
             if (uploadError) throw uploadError;
 

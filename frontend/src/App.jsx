@@ -14,6 +14,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import BrowseGigsPage from './pages/BrowseGigsPage';
 import GigDetailsPage from './pages/GigDetailsPage';
+import ChatPage from './pages/ChatPage';
 
 import useAuthStore from './store/useAuthStore';
 import Navbar from './components/Navbar';
@@ -50,6 +51,7 @@ const App = () => {
             <Route path="/post-job" element={<ProtectedRoute><PostJobPage /></ProtectedRoute>} />
             <Route path="/browse-jobs" element={<ProtectedRoute><BrowseJobsPage /></ProtectedRoute>} />
             <Route path="/browse-gigs" element={<ProtectedRoute><BrowseGigsPage /></ProtectedRoute>} />
+            <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
             <Route path="/jobs/:id" element={<ProtectedRoute><JobDetailsPage /></ProtectedRoute>} />
             <Route path="/gigs/:id" element={<ProtectedRoute><GigDetailsPage /></ProtectedRoute>} />
             <Route path="/orders/:id" element={<ProtectedRoute><OrderDetailsPage /></ProtectedRoute>} />
