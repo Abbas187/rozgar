@@ -69,8 +69,8 @@ const ProfilePage = () => {
             await initialize(); // Sync
 
         } catch (error) {
-            console.error(error);
-            toast.error('Error uploading avatar.');
+            console.error("Avatar Upload Failed:", error);
+            toast.error(error.message || 'Error uploading avatar.');
         } finally {
             setUploading(false);
         }

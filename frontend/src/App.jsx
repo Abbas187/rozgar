@@ -11,6 +11,7 @@ import BrowseJobsPage from './pages/BrowseJobsPage';
 import JobDetailsPage from './pages/JobDetailsPage';
 import OrderDetailsPage from './pages/OrderDetailsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import ProfilePage from './pages/ProfilePage';
 import BrowseGigsPage from './pages/BrowseGigsPage';
 import GigDetailsPage from './pages/GigDetailsPage';
 import ChatPage from './pages/ChatPage';
