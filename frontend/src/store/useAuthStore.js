@@ -15,7 +15,7 @@ const useAuthStore = create((set) => ({
                 .select('*')
                 .eq('id', session.user.id)
                 .single();
-            set({ user: { ...session.user, ...profile }, token: session.access_token });
+            set({ user: { ...session.user, ...profile, role: profile?.role || session.user.user_metadata?.role }, token: session.access_token });
         }
 
         supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -25,7 +25,7 @@ const useAuthStore = create((set) => ({
                     .select('*')
                     .eq('id', session.user.id)
                     .single();
-                set({ user: { ...session.user, ...profile }, token: session.access_token });
+                set({ user: { ...session.user, ...profile, role: profile?.role || session.user.user_metadata?.role }, token: session.access_token });
             } else {
                 set({ user: null, token: null });
             }
@@ -44,7 +44,7 @@ const useAuthStore = create((set) => ({
                 .eq('id', data.user.id)
                 .single();
 
-            set({ user: { ...data.user, ...profile }, token: data.session.access_token, isLoading: false });
+            set({ user: { ...data.user, ...profile, role: profile?.role || data.user.user_metadata?.role }, token: data.session.access_token, isLoading: false });
             return true;
         } catch (error) {
             set({
@@ -76,7 +76,7 @@ const useAuthStore = create((set) => ({
                     .select('*')
                     .eq('id', data.user.id)
                     .single();
-                set({ user: { ...data.user, ...profile }, token: data.session.access_token });
+                set({ user: { ...data.user, ...profile, role: profile?.role || data.user.user_metadata?.role }, token: data.session.access_token });
             }
 
             set({ isLoading: false });
