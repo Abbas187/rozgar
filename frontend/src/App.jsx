@@ -11,6 +11,7 @@ import BrowseJobsPage from './pages/BrowseJobsPage';
 import JobDetailsPage from './pages/JobDetailsPage';
 import OrderDetailsPage from './pages/OrderDetailsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import ProfilePage from './pages/ProfilePage';
 
 import useAuthStore from './store/useAuthStore';
 import Navbar from './components/Navbar';
@@ -48,6 +49,7 @@ const App = () => {
             <Route path="/browse-jobs" element={<ProtectedRoute><BrowseJobsPage /></ProtectedRoute>} />
             <Route path="/jobs/:id" element={<ProtectedRoute><JobDetailsPage /></ProtectedRoute>} />
             <Route path="/orders/:id" element={<ProtectedRoute><OrderDetailsPage /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><AdminDashboardPage /></ProtectedRoute>} />
           </Routes>
         </main>

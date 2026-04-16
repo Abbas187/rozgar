@@ -32,7 +32,7 @@ const RegisterPage = () => {
         const result = await register(formData);
         if (result && result.success) {
             toast.success('Registration successful!');
-            navigate('/');
+            navigate('/dashboard');
         } else {
             toast.error((result && result.message) || 'Failed to register');
         }

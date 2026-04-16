@@ -70,6 +70,15 @@ const useAuthStore = create((set) => ({
             });
             if (error) throw error;
 
+            if (data.session) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', data.user.id)
+                    .single();
+                set({ user: { ...data.user, ...profile }, token: data.session.access_token });
+            }
+
             set({ isLoading: false });
             return { success: true };
         } catch (error) {

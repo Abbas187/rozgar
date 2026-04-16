@@ -1,10 +1,16 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
 import { LogOut, User as UserIcon, Briefcase } from 'lucide-react';
 
 const Navbar = () => {
     const { user, logout } = useAuthStore();
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        await logout();
+        navigate('/');
+    };
 
     return (
         <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
@@ -28,7 +34,7 @@ const Navbar = () => {
                                     Dashboard
                                 </Link>
                                 <div className="h-6 w-px bg-slate-200 mx-2"></div>
-                                <div className="flex items-center space-x-3">
+                                <Link to="/profile" className="flex items-center space-x-3 hover:bg-slate-50 p-1.5 rounded-lg transition-colors">
                                     <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-100 border border-slate-200">
                                         {user.profilePicture ? (
                                             <img src={user.profilePicture} alt="Profile" className="w-full h-full object-cover" />
@@ -36,14 +42,17 @@ const Navbar = () => {
                                             <UserIcon className="w-full h-full p-1 text-slate-400" />
                                         )}
                                     </div>
-                                    <span className="text-sm font-medium text-slate-700 hidden sm:block">{user.name}</span>
-                                    <button
-                                        onClick={logout}
-                                        className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                                    >
-                                        <LogOut className="w-5 h-5" />
-                                    </button>
-                                </div>
+                                    <div className="hidden sm:block text-left">
+                                        <span className="text-sm font-bold text-slate-700 block leading-tight">{user.name}</span>
+                                        <span className={`text-[10px] uppercase font-black tracking-wider ${user.role === 'Buyer' ? 'text-blue-500' : 'text-emerald-500'}`}>{user.role}</span>
+                                    </div>
+                                </Link>
+                                <button
+                                    onClick={handleLogout}
+                                    className="p-1.5 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                                >
+                                    <LogOut className="w-5 h-5" />
+                                </button>
                             </>
                         ) : (
                             <>
